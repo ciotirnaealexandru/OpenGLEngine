@@ -10,12 +10,26 @@ void processInput(GLFWwindow *window);
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
+const char *vertexShaderSource = "#version 330 core\n"
+                                 "layout (location = 0) in vec3 aPos;\n"
+                                 "void main()\n"
+                                 "{\n"
+                                 "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+                                 "}\0";
+
+const char *fragmentShaderSource = "#version 330 core\n"
+                                   "out vec4 FragColor;\n"
+
+                                   "void main()\n"
+                                   "{\n"
+                                   "FragColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);\n"
+                                   "}\n";
+
 int main()
 {
-    // glfw: initialize and configure
-    // ------------------------------
+    // --- GLFW WINDOW SETUP --------------------------------------------------
 
-    // initialize GLFW
+    // initialize glfw
     glfwInit();
 
     // the first argument tells us what we want to configure
@@ -32,14 +46,11 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    // glfw window creation
-    // --------------------
-
     // we initialize a window object with the folowing arguments
     // PARAMETERS 1, 2, 3: width | height | title
     // PARAMETER 4: monitor – The monitor to use for full screen mode, or NULL for windowed mode.
     // PARAMETER 5: share – The window whose context to share resources with, or NULL to not share resources.
-    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "OpenGL Engine", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -56,38 +67,133 @@ int main()
     // ---------------------------------------
 
     // we use glad to load the function pointers for OpenGL
-    // if this did not work we throw an error
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
 
-    // render loop
-    // -----------
+    // --- VERTEX SHADER ------------------------------------------------------
+
+    // create a vertex shader object and remember it by id
+    unsigned int vertexShader;
+    vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    // attach the shader source code to the shader object
+    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    // compile it
+    glCompileShader(vertexShader);
+
+    // check it the compilation worked
+    int success;
+    char infoLog[512];
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success)
+    {
+        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n"
+                  << infoLog << std::endl;
+    }
+    else
+        std::cout << "VERTEX SHADER COMPILED CORRECTLY\n"
+                  << std::endl;
+    std::cout.flush();
+
+    // --- FRAGMENT SHADER ----------------------------------------------------
+
+    // initialize a fragment shader and remember it by its id
+    unsigned int fragmentShader;
+    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    // attach the shader source code to the shader object
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    // compile it
+    glCompileShader(fragmentShader);
+
+    // check it the compilation worked
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success)
+    {
+        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n"
+                  << infoLog << std::endl;
+    }
+    else
+        std::cout << "FRAGMENT SHADER COMPILED CORRECTLY\n"
+                  << std::endl;
+    std::cout.flush();
+
+    // --- SHADER PROGRAM -----------------------------------------------------
+
+    // create a shader object and remember it by its id
+    unsigned int shaderProgram;
+    shaderProgram = glCreateProgram();
+    // attach the shaders in order and try to link them
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+
+    // check it the linking worked
+    glGetProgramiv(shaderProgram, GL_COMPILE_STATUS, &success);
+    if (!success)
+    {
+        glGetShaderInfoLog(shaderProgram, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
+                  << infoLog << std::endl;
+    }
+    else
+        std::cout << "SHADER PROGRAM LINKED CORRECTLY\n"
+                  << std::endl;
+    std::cout.flush();
+
+    // delete the shader objects since we no longer need them
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    // --- GENERATE VERTEX ARRAY OBJECT ---------------------------------------
+
+    // GET A TRIANGLE
+
+    // initialize 3 points in space
+    float vertices[] = {
+        -0.5f, -0.5f, 0.0f,
+        0.5f, -0.5f, 0.0f,
+        0.0f, 0.5f, 0.0f};
+
+    // get a vertex buffer object and remember it by id
+    unsigned int VBO;
+    glGenBuffers(1, &VBO);
+    // bind the buffer to GL_ARRAY_BUFFER
+    // from now on any calls we make on GL_ARRAY_BUFFER will be used to
+    // configure the currently bound buffer
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    // we get the data from the vertices
+    // GL_STATIC_DRAW means the data is: set once, used many times by the GPU
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    // initialize a VAO and get it by its id
+    unsigned int VAO;
+    glGenVertexArrays(1, &VAO);
+    // bind the VAO
+    glBindVertexArray(VAO);
+
+    // specify how OpenGL should interpret the vertex data
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+    glEnableVertexAttribArray(0);
+
+    // --- RENDER LOOP --------------------------------------------------------
+
     while (!glfwWindowShouldClose(window))
     {
-        // input
-        // -----
-        // i use this function to exit on Esc key press
-        processInput(window);
-
-        // render
-        // ------
-        // R, G, B, transparency
+        // render a blue color background
         glClearColor(0.2588f, 0.3529f, 0.9608f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-        {
-            // specify the color to clear the screen with
-            // (the state setter)
-            glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-            // we use glClear to clear the color buffer of the screen
-            // because we only care about the color values we use GL_COLOR_BUFFER_BIT
-            // (the state user)
-            glClear(GL_COLOR_BUFFER_BIT);
-        }
+        // i use this function to process key presses
+        processInput(window);
+
+        // use the custom shader program to render the TRIANGLE
+        glUseProgram(shaderProgram);
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -107,8 +213,21 @@ int main()
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow *window)
 {
+    // ESCAPE
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+
+    // SPACE
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+    {
+        // specify the color to clear the screen with
+        // (the state setter)
+        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+        // we use glClear to clear the color buffer of the screen
+        // because we only care about the color values we use GL_COLOR_BUFFER_BIT
+        // (the state user)
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

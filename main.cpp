@@ -148,19 +148,37 @@ int main()
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    // --- GENERATE VERTEX ARRAY OBJECT ---------------------------------------
+    // --- GENERATE VBO, VAO, EBO ---------------------------------------------
 
-    // GET A TRIANGLE
+    // GET A RECTAGLE
 
-    // initialize 3 points in space
     float vertices[] = {
-        -0.5f, -0.5f, 0.0f,
-        0.5f, -0.5f, 0.0f,
-        0.0f, 0.5f, 0.0f};
+        0.5f, 0.5f, 0.0f,   // top right
+        0.5f, -0.5f, 0.0f,  // bottom right
+        -0.5f, -0.5f, 0.0f, // bottom left
+        -0.5f, 0.5f, 0.0f   // top left
+    };
+    unsigned int indices[] = {
+        // note that we start from 0!
+        0, 1, 3, // first triangle
+        1, 2, 3  // second triangle
+    };
 
     // get a vertex buffer object and remember it by id
     unsigned int VBO;
     glGenBuffers(1, &VBO);
+
+    // initialize a VAO and get it by its id
+    unsigned int VAO;
+    glGenVertexArrays(1, &VAO);
+
+    // get an EBO and remember it by its id
+    unsigned int EBO;
+    glGenBuffers(1, &EBO);
+
+    // bind the VAO
+    glBindVertexArray(VAO);
+
     // bind the buffer to GL_ARRAY_BUFFER
     // from now on any calls we make on GL_ARRAY_BUFFER will be used to
     // configure the currently bound buffer
@@ -169,11 +187,9 @@ int main()
     // GL_STATIC_DRAW means the data is: set once, used many times by the GPU
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    // initialize a VAO and get it by its id
-    unsigned int VAO;
-    glGenVertexArrays(1, &VAO);
-    // bind the VAO
-    glBindVertexArray(VAO);
+    // bind the buffer and put the indices
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     // specify how OpenGL should interpret the vertex data
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
@@ -187,13 +203,22 @@ int main()
         glClearColor(0.2588f, 0.3529f, 0.9608f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // i use this function to process key presses
-        processInput(window);
-
         // use the custom shader program to render the TRIANGLE
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        // show in wireframe mode
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glLineWidth(10.0f);
+        // draw the poligon
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        // revert to fill mode
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+        glBindVertexArray(0);
+
+        // i use this function to process key presses
+        processInput(window);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -213,11 +238,11 @@ int main()
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow *window)
 {
-    // ESCAPE
+    // ESCAPE (close the window)
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    // SPACE
+    // SPACE (make the window red)
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
     {
         // specify the color to clear the screen with
